@@ -62,7 +62,9 @@ class OptionsVisualizer:
         
     def create_oi_heatmap(self, weekly_data: Dict[str, pd.DataFrame], 
                          expiry: Optional[str] = None,
-                         option_type: str = 'ALL') -> go.Figure:
+                         option_type: str = 'ALL',
+                         spot_price: Optional[float] = None,
+                         strike_range_pct: float = 0.05) -> go.Figure:
         """
         Create heatmap showing OI changes across weeks and strikes.
         
@@ -70,6 +72,8 @@ class OptionsVisualizer:
             weekly_data: Dict mapping week names to DataFrames
             expiry: Specific expiry to filter (None for all)
             option_type: 'CE', 'PE', or 'ALL'
+            spot_price: Current NIFTY spot price for filtering (None = no filter)
+            strike_range_pct: Range to show as % of spot (default 0.05 = ±5%)
             
         Returns:
             Plotly Figure object
@@ -84,6 +88,12 @@ class OptionsVisualizer:
                 df = df[df['Expiry'] == expiry]
             if option_type != 'ALL':
                 df = df[df['Option_Type'] == option_type]
+            
+            # Filter strikes to ±5% of spot price if provided
+            if spot_price and spot_price > 0:
+                lower_bound = spot_price * (1 - strike_range_pct)
+                upper_bound = spot_price * (1 + strike_range_pct)
+                df = df[(df['Strike'] >= lower_bound) & (df['Strike'] <= upper_bound)]
             
             # Group by strike and sum OI
             strike_oi = df.groupby('Strike')['OI_Change'].sum().reset_index()

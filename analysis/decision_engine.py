@@ -583,6 +583,122 @@ class DecisionEngine:
             'signal': signal_type,
             'signal_confidence': signal_confidence
         }
+    
+    def generate_probability_signal(
+        self,
+        pcr: float,
+        vix: float,
+        oi_concentration: float,
+        iv_skew: float = 0.0,
+        spot_movement: float = 0.0
+    ) -> Dict[str, Any]:
+        """
+        Generate probability-weighted trade recommendation.
+        
+        Combines multiple market indicators to produce actionable trade signal.
+        
+        Args:
+            pcr: Put-Call Ratio (OI based)
+            vix: VIX or implied volatility level
+            oi_concentration: OI concentration in top strikes (%)
+            iv_skew: IV skew (CE-PE) in percentage points
+            spot_movement: Recent spot price movement (%)
+            
+        Returns:
+            dict with action, confidence, strategy, reasoning, score
+        """
+        score = 0
+        signals = []
+        
+        # PCR signals (40% weight)
+        if pcr < 0.7:  # Extreme Bullish
+            score += 35
+            signals.append("Bullish sentiment (low PCR)")
+            bias = "BULLISH"
+        elif pcr > 1.3:  # Extreme Bearish
+            score -= 35
+            signals.append("Bearish sentiment (high PCR)")
+            bias = "BEARISH"
+        elif 0.9 <= pcr <= 1.1:  # Neutral
+            score += 15
+            signals.append("Neutral PCR - range trading favorable")
+            bias = "NEUTRAL"
+        else:
+            bias = "NEUTRAL"
+        
+        # VIX signals (30% weight)
+        if vix > 20:  # High volatility
+            score += 25
+            signals.append(f"High VIX ({vix:.1f}%) - Premium selling favorable")
+            vol_regime = "HIGH"
+        elif vix < 12:  # Low volatility
+            score += 10
+            signals.append(f"Low VIX ({vix:.1f}%) - Delta strategies preferred")
+            vol_regime = "LOW"
+        elif 12 <= vix <= 18:
+            score += 20
+            signals.append(f"Normal VIX ({vix:.1f}%) - Good entry zone")
+            vol_regime = "NORMAL"
+        else:
+            vol_regime = "NORMAL"
+        
+        # OI concentration (20% weight)
+        if oi_concentration > 60:
+            score += 20
+            signals.append(f"High OI concentration ({oi_concentration:.1f}%) - Range-bound likely")
+            range_bound = True
+        elif oi_concentration < 30:
+            score += 5
+            signals.append(f"Low OI concentration - Breakout possible")
+            range_bound = False
+        else:
+            range_bound = False
+        
+        # IV skew (10% weight)
+        if abs(iv_skew) > 5:
+            score += 10
+            signals.append(f"IV Skew {iv_skew:.1f}% - Directional risk premium")
+        
+        # Final recommendation
+        confidence = min(abs(score), 100)
+        
+        # Determine action and strategy
+        if score > 50 and range_bound:
+            action = "SELL_PREMIUM"
+            strategy = "Iron Condor or Short Strangle"
+            reasoning = "Strong premium selling setup with defined range"
+        elif score < -30:
+            action = "DIRECTIONAL"
+            if bias == "BEARISH":
+                strategy = "Bear Put Spread or Naked Puts"
+            else:
+                strategy = "Bull Call Spread or Naked Calls"
+            reasoning = "Clear directional bias - Take directional position"
+        elif 20 < score <= 50:
+            if vol_regime == "LOW":
+                action = "BUY_PREMIUM"
+                strategy = "Long Straddle/Strangle"
+                reasoning = "Low volatility - Buying premium for breakout"
+            else:
+                action = "SELL_PREMIUM"
+                strategy = "Credit Spreads"
+                reasoning = "Moderate setup - Limited risk premium selling"
+        else:
+            action = "WAIT"
+            strategy = "No clear edge"
+            reasoning = "Market conditions unclear - Wait for better setup"
+            confidence = max(20, confidence)
+        
+        return {
+            'action': action,
+            'confidence': confidence,
+            'strategy': strategy,
+            'reasoning': reasoning,
+            'signals': signals,
+            'score': score,
+            'bias': bias,
+            'vol_regime': vol_regime
+        }
 
 
 # Standalone utility functions
