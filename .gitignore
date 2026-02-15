@@ -44,3 +44,6 @@ nohup.out
 dist/
 build/
 *.egg-info/
+
+# Prompts
+prompts/*

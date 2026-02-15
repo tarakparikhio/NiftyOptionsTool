@@ -1,0 +1,25 @@
+1.0.0-alpha
+Release Date: February 15, 2026
+Status: Alpha Testing
+
+This version includes:
+- Professional Strategy Builder with 9 Sensibull-level features
+- Directional signal engine (RSI + PCR)
+- Range prediction with fat-tail modeling
+- Greeks calculator
+- Risk engine with Kelly sizing
+- Decision engine
+- Multi-tab dashboard (mobile + desktop responsive)
+- CSV-based data ingestion
+
+Known Limitations:
+- Local deployment only
+- Manual CSV upload required
+- No live API integration yet
+- Historical comparison requires multiple weeks of data
+
+Next Phase (v2.0):
+- System cleanup and simplification (see Prompts/cleanup.md)
+- Architecture reduction
+- UX streamlining
+- Production hardening

@@ -22,14 +22,43 @@ class OptionsVisualizer:
     Creates interactive visualizations for options positioning analysis.
     """
     
-    def __init__(self, theme: str = 'plotly_dark'):
+    def __init__(self, theme: str = 'plotly_dark', mobile_mode: bool = False):
         """
-        Initialize visualizer with theme.
+        Initialize visualizer with theme and mobile mode.
         
         Args:
             theme: Plotly theme ('plotly_dark', 'plotly', 'seaborn', etc.)
+            mobile_mode: If True, optimize charts for mobile devices (reduced height, simplified)
         """
         self.theme = theme
+        self.mobile_mode = mobile_mode
+        
+        # Chart configuration for mobile vs desktop
+        if mobile_mode:
+            self.chart_height = 300
+            self.margin = dict(l=20, r=20, t=30, b=20)
+            self.font_size = 10
+        else:
+            self.chart_height = 500
+            self.margin = dict(l=40, r=40, t=50, b=40)
+            self.font_size = 12
+        
+        # Standard config for all charts
+        self.plotly_config = {
+            "responsive": True,
+            "displayModeBar": False
+        }
+        
+    def _apply_responsive_layout(self, fig: go.Figure, height: int = None) -> go.Figure:
+        """Apply responsive layout settings to a figure."""
+        fig.update_layout(
+            autosize=True,
+            height=height or self.chart_height,
+            margin=self.margin,
+            font=dict(size=self.font_size),
+            template=self.theme
+        )
+        return fig
         
     def create_oi_heatmap(self, weekly_data: Dict[str, pd.DataFrame], 
                          expiry: Optional[str] = None,
@@ -79,7 +108,7 @@ class OptionsVisualizer:
             zmid=0,
             text=heatmap_data.values,
             texttemplate='%{text:.0f}',
-            textfont={"size": 8},
+            textfont={"size": self.font_size - 2},
             colorbar=dict(title="OI Change")
         ))
         
@@ -87,12 +116,10 @@ class OptionsVisualizer:
             title=f'OI Change Heatmap - {option_type} ({expiry or "All Expiries"})',
             xaxis_title='Strike Price',
             yaxis_title='Week',
-            template=self.theme,
-            height=500,
-            xaxis=dict(tickangle=-45)
         )
         
-        return fig
+        # Apply responsive layout
+        return self._apply_responsive_layout(fig)
     
     def create_pcr_trend_chart(self, pcr_trend: pd.DataFrame) -> go.Figure:
         """
@@ -159,13 +186,11 @@ class OptionsVisualizer:
         
         fig.update_layout(
             title='Put-Call Ratio (PCR) Trend Analysis',
-            template=self.theme,
-            height=500,
             hovermode='x unified',
             barmode='group'
         )
         
-        return fig
+        return self._apply_responsive_layout(fig)
     
     def create_iv_surface(self, weekly_data: Dict[str, pd.DataFrame],
                          expiry: Optional[str] = None) -> go.Figure:
@@ -213,13 +238,11 @@ class OptionsVisualizer:
             title=f'IV Surface Evolution ({expiry or "All Expiries"})',
             xaxis_title='Strike Price',
             yaxis_title='Implied Volatility (%)',
-            template=self.theme,
-            height=500,
             hovermode='closest',
             legend=dict(orientation="v", yanchor="top", y=1, xanchor="left", x=1.02)
         )
         
-        return fig
+        return self._apply_responsive_layout(fig)
     
     def create_oi_distribution(self, df: pd.DataFrame, spot_price: Optional[float] = None) -> go.Figure:
         """

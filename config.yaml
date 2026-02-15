@@ -92,6 +92,41 @@ position_sizing:
   high_confidence_threshold: 75
   low_confidence_threshold: 50
 
+# Strategy Builder
+strategies:
+  # Position configuration
+  nifty_lot_size: 50          # Standard NIFTY lot size
+  margin_multiplier: 0.20     # Percentage for naked positions
+  
+  # Presets
+  iron_condor:
+    wing_width: 300           # Width between short and long strikes
+    short_distance: 200       # Distance from ATM to short strikes
+  
+  strangle:
+    distance: 300             # Distance from ATM to strikes
+  
+  straddle:
+    distance: 0               # ATM strategy
+  
+  spreads:
+    width: 100                # Default spread width
+  
+  # Strike selection
+  strike_selection:
+    delta_ranges:
+      aggressive: [0.6, 0.75]  # Higher delta, closer to ATM
+      moderate: [0.4, 0.6]     # Medium delta
+      conservative: [0.2, 0.4] # Lower delta, farther OTM
+    
+    default_dte: 7             # Default days to expiry
+  
+  # Greeks thresholds
+  greeks:
+    high_delta_threshold: 0.5
+    high_vega_threshold: 100
+    high_theta_decay: -50
+
 # Assertion Rules
 rules:
   volatility_expansion:
