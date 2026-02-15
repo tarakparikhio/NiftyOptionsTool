@@ -1,0 +1,1 @@
+{"trade_id": "20260214_221434_entry", "timestamp": "2026-02-14T22:14:34.266622", "stage": "entry", "strategy": {"name": "Test Strategy"}, "market_context": {"pcr": 1.1, "spot": 23000}, "decision_metrics": {"trade_score": 75}, "position_size": {"num_lots": 2}, "notes": "Test entry"}

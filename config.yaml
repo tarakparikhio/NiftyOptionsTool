@@ -1,0 +1,191 @@
+# Nifty Options Intelligence Platform - Configuration
+
+# Data Paths
+data:
+  mode: "csv_only"  # Data source mode: csv_only (live NSE disabled)
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  reference_dir: "data/reference"
+  daily_dir: "data/raw/daily"
+  weekly_dir: "data/raw/weekly"
+  monthly_dir: "data/raw/monthly"
+
+# Market Data
+market:
+  nifty_symbol: "^NSEI"
+  vix_symbol: "^INDIAVIX"
+  default_period: "1mo"
+  atr_period: 14
+  cache_expiry_hours: 1
+
+# Analysis Parameters
+analysis:
+  # PCR thresholds
+  pcr_bullish_threshold: 0.7
+  pcr_bearish_threshold: 1.3
+  
+  # VIX levels
+  vix_low: 11
+  vix_normal_low: 13
+  vix_normal_high: 18
+  vix_high: 20
+  
+  # OI Concentration
+  top_n_strikes: 5
+  concentration_threshold: 50  # percentage
+  
+  # Max Pain
+  max_pain_distance_alert: 300  # points from spot
+  
+  # IV Analysis
+  iv_percentile_low: 20
+  iv_percentile_high: 80
+
+# Range Prediction
+prediction:
+  # Ensemble weights
+  weights:
+    statistical: 0.4
+    rule_based: 0.3
+    iv_based: 0.3
+
+# Directional Signal Thresholds
+signals:
+  # RSI thresholds (for momentum)
+  rsi_oversold: 30      # ← RSI < 30 = potential CALL buy
+  rsi_overbought: 70    # ← RSI > 70 = potential PUT buy
+  rsi_period: 14        # Standard RSI lookback
+  
+  # PCR thresholds (for sentiment)
+  pcr_oversold: 0.7     # ← PCR < 0.7 = bullish (confirms CALL buy)
+  pcr_overbought: 1.3   # ← PCR > 1.3 = bearish (confirms PUT buy)
+  pcr_by_expiry: true   # Use nearest expiry PCR
+  
+  # Confluence requirements
+  min_confluence_strength: 0.6  # How strongly RSI + PCR must align
+  
+  # Optional price levels (for structure)
+  fibonacci:
+    enabled: false      # Future: add Fibonacci confluence
+  support_resistance:
+    enabled: true       # Use support/resistance levels
+
+# Position Sizing
+position_sizing:
+  # Kelly Criterion
+  kelly:
+    base_fraction: 0.25      # Quarter Kelly (conservative)
+    sample_size_minimum: 50  # Minimum trades before using Kelly
+    max_risk_percent: 2.0    # Never risk more than 2% per trade
+    
+  # Conservative adjustments
+  uncertainty_factor: 0.5    # For sample sizes < 100
+  
+  # Risk management
+  max_daily_loss: 3.0        # Max loss per day (%)
+  
+  # ATR multipliers
+  atr_daily_multiplier: 1.0
+  atr_weekly_multiplier: 2.0
+  
+  # Confidence adjustments
+  high_confidence_threshold: 75
+  low_confidence_threshold: 50
+
+# Assertion Rules
+rules:
+  volatility_expansion:
+    pcr: 1.3
+    vix: 18
+  bullish_positioning:
+    periods: 3
+  bearish_hedge_cover:
+    threshold: 100000
+  panic_regime:
+    iv_jump: 15
+    spot_drop: 1
+  complacency:
+    vix: 11
+  strong_defense:
+    concentration: 50
+  market_uncertainty:
+    threshold: 50000
+  expiry_pull:
+    distance: 300
+    dte: 5
+
+# Strategy Builder
+strategies:
+  iron_condor:
+    wing_width: 200
+    default_distance: 200
+  
+  strangle:
+    delta_distance: 300
+  
+  straddle:
+    use_atm: true
+  
+  spreads:
+    spread_width: 200
+  
+  covered_call:
+    call_distance: 200
+
+# Strategy Builder
+strategies:
+  lot_size: 50  # Default lot size for NIFTY options
+  min_lots: 1
+  max_lots: 100
+  risk_free_rate: 0.065  # 6.5% annual rate for India
+  
+  # Greeks calculation
+  use_black_scholes: true
+  days_to_expiry_min: 1
+  
+  # P&L simulation
+  spot_range_pct: 10  # ±10% for P&L curve
+  simulation_points: 100
+
+# Visualization
+visualization:
+  theme: "plotly_white"
+  color_scheme:
+    ce: "#FF6B6B"  # Red for calls
+    pe: "#4ECDC4"  # Teal for puts
+    pcr: "#FFA07A"
+    vix: "#FFD700"
+  
+  chart_height: 500
+  chart_width: 800
+
+# Streamlit Dashboard
+dashboard:
+  title: "Nifty Options Intelligence Platform"
+  page_icon: "📊"
+  layout: "wide"
+  initial_sidebar_state: "expanded"
+  
+  # Display options
+  show_raw_data: false
+  default_weeks_lookback: 4
+  cache_ttl: 3600  # seconds
+
+# Output Settings
+output:
+  report_dir: "reports"
+  timestamp_format: "%Y%m%d_%H%M%S"
+  json_indent: 2
+  csv_index: false
+
+# Logging
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/platform.log"
+
+# API Settings (if needed)
+api:
+  rate_limit: 100  # requests per minute
+  timeout: 30  # seconds
+  retry_attempts: 3
