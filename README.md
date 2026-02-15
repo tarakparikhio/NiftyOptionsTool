@@ -54,12 +54,14 @@ Professional analytics dashboard for discretionary options traders.
 
 ## 📁 Data Setup
 
-Place CSV files in:
+Manual upload only.
+
+Upload CSV files via the dashboard sidebar. Each upload is saved to:
 ```
-data/raw/monthly/WeekName/*.csv
+data/uploads/
 ```
 
-Or upload via dashboard sidebar.
+Historical folder selection is disabled. Use Upload History instead.
 
 ---
 

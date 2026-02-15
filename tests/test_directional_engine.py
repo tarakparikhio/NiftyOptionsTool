@@ -2,6 +2,11 @@
 """
 Integration Validation Script
 
+⚠️ NOTE: This test uses the legacy strategy_builder API
+   (archived in archive/legacy_v1.0/strategy_builder_old.py)
+   
+   For new strategy builder tests, see tests/test_strategy_logic.py
+
 Verifies that all components are working and properly integrated.
 Run this before using the trading engine in production.
 """
@@ -21,8 +26,11 @@ def test_imports() -> bool:
         from analysis.directional_signal import DirectionalSignalEngine
         print("✅ DirectionalSignalEngine imported")
         
-        from analysis.strategy_builder import StrategyTemplate
-        print("✅ StrategyTemplate imported")
+        # NOTE: Using archived legacy version for this test
+        sys.path.append('archive/legacy_v1.0')
+        from strategy_builder_old import StrategyTemplate
+        sys.path.remove('archive/legacy_v1.0')
+        print("✅ StrategyTemplate imported (legacy)")
         
         from analysis.position_sizer import PositionSizer
         print("✅ PositionSizer imported")
@@ -103,7 +111,10 @@ def test_strategy_builder() -> bool:
     print("=" * 70)
     
     try:
-        from analysis.strategy_builder import StrategyTemplate
+        # NOTE: Using archived legacy version for this test
+        sys.path.append('archive/legacy_v1.0')
+        from strategy_builder_old import StrategyTemplate
+        sys.path.remove('archive/legacy_v1.0')
         
         # Create a simple long call strategy
         strategy = StrategyTemplate("Test Long Call", spot=23000, dte=7)

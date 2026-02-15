@@ -90,6 +90,64 @@ class OptionsMetrics:
             return self.df.nlargest(n, 'OI')[['Strike', 'Option_Type', 'OI', 
                                                'OI_Change', 'Volume', 'IV']]
     
+    def get_top_oi_with_context(self, spot_price: float, pcr: float, n: int = 3) -> Dict[str, pd.DataFrame]:
+        """
+        Get top N CE and PE strikes with directional context.
+        
+        Args:
+            spot_price: Current NIFTY spot price
+            pcr: Current Put-Call Ratio
+            n: Number of top strikes per type
+            
+        Returns:
+            Dict with 'CE' and 'PE' DataFrames containing:
+            Strike, OI, OI_Pct, Distance_Points, Distance_Pct, Signal
+        """
+        total_oi = self.df['OI'].sum()
+        ce_total_oi = self.df[self.df['Option_Type'] == 'CE']['OI'].sum()
+        pe_total_oi = self.df[self.df['Option_Type'] == 'PE']['OI'].sum()
+        
+        # Get top CE strikes
+        ce_df = self.df[self.df['Option_Type'] == 'CE'].nlargest(n, 'OI').copy()
+        ce_df['OI_Pct'] = (ce_df['OI'] / total_oi * 100).round(2)
+        ce_df['Distance_Points'] = (ce_df['Strike'] - spot_price).astype(int)
+        ce_df['Distance_Pct'] = ((ce_df['Strike'] / spot_price - 1) * 100).round(2)
+        
+        # Generate CE signals
+        def ce_signal(row):
+            strike = row['Strike']
+            if pcr < 0.7:  # Bullish regime
+                return f"Call writers defending resistance at {strike:.0f}"
+            elif pcr > 1.3:  # Bearish regime
+                return f"Call OI may unwind if NIFTY rallies past {strike:.0f}"
+            else:  # Neutral
+                return f"Strong call writing at {strike:.0f} = resistance zone"
+        
+        ce_df['Signal'] = ce_df.apply(ce_signal, axis=1)
+        
+        # Get top PE strikes
+        pe_df = self.df[self.df['Option_Type'] == 'PE'].nlargest(n, 'OI').copy()
+        pe_df['OI_Pct'] = (pe_df['OI'] / total_oi * 100).round(2)
+        pe_df['Distance_Points'] = (pe_df['Strike'] - spot_price).astype(int)
+        pe_df['Distance_Pct'] = ((pe_df['Strike'] / spot_price - 1) * 100).round(2)
+        
+        # Generate PE signals
+        def pe_signal(row):
+            strike = row['Strike']
+            if pcr > 1.3:  # Bearish regime
+                return f"Put buyers hedging downside at {strike:.0f}"
+            elif pcr < 0.7:  # Bullish regime
+                return f"Put writers defending support at {strike:.0f}"
+            else:  # Neutral
+                return f"Strong put writing at {strike:.0f} = support zone"
+        
+        pe_df['Signal'] = pe_df.apply(pe_signal, axis=1)
+        
+        return {
+            'CE': ce_df[['Strike', 'OI', 'OI_Pct', 'Distance_Points', 'Distance_Pct', 'Signal']],
+            'PE': pe_df[['Strike', 'OI', 'OI_Pct', 'Distance_Points', 'Distance_Pct', 'Signal']]
+        }
+    
     def compute_oi_concentration(self, top_n: int = 3) -> Dict[str, float]:
         """
         Compute OI concentration ratio.

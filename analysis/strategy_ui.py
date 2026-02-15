@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from typing import Dict, Optional
 
-from analysis.strategy_builder_v2 import (
+from analysis.strategy_builder import (
     Strategy, OptionLeg, StrategyMetrics,
     StrikeSuggestionEngine,
     create_iron_condor, create_strangle

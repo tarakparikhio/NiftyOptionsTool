@@ -12,6 +12,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from datetime import datetime, date
+import json
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import sys
@@ -24,7 +26,7 @@ from insights import InsightsEngine
 
 # NEW: Import directional trading components
 from analysis.directional_signal import DirectionalSignalEngine
-from analysis.strategy_builder import StrategyTemplate, IronCondor, Strangle, Straddle
+# NOTE: Legacy strategy_builder classes removed - using strategy_builder_v2 in TAB 5
 from analysis.position_sizer import PositionSizer
 from analysis.range_predictor import RangePredictor
 from analysis.decision_engine import DecisionEngine
@@ -75,6 +77,10 @@ st.markdown(f"""
     """, unsafe_allow_html=True)
 
 
+UPLOADS_DIR = Path("data/uploads")
+UPLOAD_INDEX = UPLOADS_DIR / "index.jsonl"
+
+
 @st.cache_data(ttl=3600)
 def load_data(data_folder: str):
     """Load and cache options data."""
@@ -87,6 +93,77 @@ def load_data(data_folder: str):
     
     weeks = sorted(weekly_data.keys())
     return weekly_data, weeks
+
+
+def _write_upload_index(entry: dict) -> None:
+    """Append a single upload entry to the JSONL index."""
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    with UPLOAD_INDEX.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry) + "\n")
+
+
+def save_uploaded_csv(uploaded_file, expiry_date: date, data_date: date) -> dict:
+    """Save uploaded CSV to data/uploads and return metadata entry."""
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    expiry_str = expiry_date.strftime("%Y%m%d")
+    data_str = data_date.strftime("%Y%m%d")
+    original_name = uploaded_file.name
+    stored_name = f"NIFTY_exp_{expiry_str}_data_{data_str}_{timestamp}.csv"
+    stored_path = UPLOADS_DIR / stored_name
+
+    stored_path.write_bytes(uploaded_file.getvalue())
+
+    entry = {
+        "expiry_date": expiry_date.strftime("%Y-%m-%d"),
+        "data_date": data_date.strftime("%Y-%m-%d"),
+        "uploaded_at": datetime.now().isoformat(timespec="seconds"),
+        "original_filename": original_name,
+        "stored_filename": stored_name,
+        "file_path": str(stored_path.as_posix())
+    }
+    _write_upload_index(entry)
+    return entry
+
+
+def load_upload_index() -> list:
+    """Load upload history from JSONL index (newest first)."""
+    if not UPLOAD_INDEX.exists():
+        return []
+
+    entries = []
+    with UPLOAD_INDEX.open("r", encoding="utf-8") as handle:
+        for line in handle:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entries.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+
+    return list(reversed(entries))
+
+
+def load_uploaded_dataset(entry: dict) -> tuple:
+    """Load a single uploaded CSV into the weekly data structure."""
+    file_path = Path(entry["file_path"])
+    if not file_path.exists():
+        raise FileNotFoundError(f"Missing upload file: {file_path}")
+
+    loader = OptionsDataLoader(str(UPLOADS_DIR))
+    df = loader._parse_nse_csv(file_path)
+
+    if df.empty:
+        return {}, []
+
+    df["Expiry"] = entry["expiry_date"]
+    df["Week"] = entry["data_date"]
+    df = loader.add_derived_columns(df)
+
+    week_key = entry["data_date"]
+    return {week_key: df}, [week_key]
 
 
 def get_regime_badge(pcr: float, vix: float, concentration: float) -> tuple:
@@ -403,76 +480,70 @@ def main():
         
         st.markdown("---")
         
-        # Data source selection (CSV only - NSE disabled per Phase 2)
-        data_source = st.radio(
-            "📊 Data Source",
-            ["📁 Folder", "📤 Upload CSV"],
-            help="Select from existing folders or upload new CSV files"
+        # Manual Upload Only
+        st.markdown("### 📥 Manual Upload")
+        uploaded_file = st.file_uploader(
+            "Upload NSE option chain CSV",
+            type=["csv"],
+            help="Use the CSV downloaded from NSE option-chain page"
         )
-        
-        data_folder = None
-        
-        data_folder = None
-        
-        if data_source == "📁 Folder":
-            quick_paths = [
-                "data/raw/monthly",
-                "Options/Monthly",
-                "Custom..."
-            ]
-            
-            path_choice = st.selectbox("Quick Select", quick_paths)
-            
-            if path_choice == "Custom...":
-                data_folder = st.text_input("Path", value="data/raw/monthly")
-            else:
-                data_folder = path_choice
-        
-        else:  # Upload CSV mode with FileManager
-            uploaded_files = st.file_uploader(
-                "Upload NSE Option Chain CSV",
-                type=['csv'],
-                accept_multiple_files=True,
-                help="Upload option chain CSV files - will be auto-organized"
+
+        col1, col2 = st.columns(2)
+        with col1:
+            expiry_date = st.date_input(
+                "Expiry Date",
+                value=date.today(),
+                help="Expiry date for this option chain"
             )
-            
-            if uploaded_files:
-                from utils.file_manager import FileManager
-                fm = FileManager()
-                
-                saved_paths = []
-                for file in uploaded_files:
-                    try:
-                        saved_path, folder_type = fm.save_uploaded_file(
-                            file.read(), 
-                            file.name
-                        )
-                        saved_paths.append((saved_path, folder_type))
-                        st.success(f"✅ Saved: `{Path(saved_path).name}` → `{folder_type}/`")
-                    except Exception as e:
-                        st.error(f"❌ Error saving {file.name}: {e}")
-                
-                if saved_paths:
-                    st.info(f"📁 **FileManager**: Auto-organized {len(saved_paths)} file(s) by expiry date and weekly/monthly detection")
-                
-                if saved_paths:
-                    # Use the folder of the first uploaded file
-                    first_path = Path(saved_paths[0][0])
-                    data_folder = str(first_path.parent.parent)  # Go up to monthly/weekly folder
-                    st.info(f"📂 Loading from: {data_folder}")
+        with col2:
+            data_date = st.date_input(
+                "Data Date",
+                value=date.today(),
+                help="Trading date for this data"
+            )
+
+        if st.button("💾 Save Upload", type="primary"):
+            if uploaded_file is None:
+                st.error("❌ Please upload a CSV file first")
             else:
-                st.warning("⚠️ Upload CSV files to continue")
-                return
+                entry = save_uploaded_csv(uploaded_file, expiry_date, data_date)
+                st.success("✅ Upload saved")
+                st.caption(
+                    f"Saved: {entry['stored_filename']} | Expiry: {entry['expiry_date']} | Date: {entry['data_date']}"
+                )
+                st.rerun()
+
+        st.markdown("---")
+        st.markdown("### 📁 Upload History")
+
+        selected_upload_entry = None
+        upload_entries = load_upload_index()
+        if not upload_entries:
+            st.info("📦 No uploads found. Upload a CSV above.")
+        else:
+            labels = [
+                f"{e['data_date']} | Exp {e['expiry_date']} | {e['original_filename']}"
+                for e in upload_entries
+            ]
+            selected_label = st.selectbox("Select upload", labels)
+            selected_upload_entry = upload_entries[labels.index(selected_label)]
+            st.caption(
+                f"Stored: {selected_upload_entry['stored_filename']} | Uploaded: {selected_upload_entry['uploaded_at']}"
+            )
     
     # Load CSV data
     try:
-            weekly_data, weeks = load_data(data_folder)
-            
-            if not weekly_data:
-                st.error("❌ No data found!")
-                return
-            
-            with st.sidebar:
+        if selected_upload_entry is None:
+            st.error("❌ No upload selected")
+            return
+
+        weekly_data, weeks = load_uploaded_dataset(selected_upload_entry)
+
+        if not weekly_data:
+            st.error("❌ No data found!")
+            return
+
+        with st.sidebar:
                 st.success(f"✅ Loaded {len(weeks)} weeks")
                 
                 # Week and expiry selection
@@ -507,7 +578,6 @@ def main():
                 # Manual NIFTY Data Update Feature
                 st.markdown("---")
                 with st.expander("📝 NIFTY Data Update"):
-                    from datetime import datetime, date
                     from utils.nifty_data_manager import NiftyDataManager
                     from api_clients.market_data import MarketDataClient
                     
@@ -833,15 +903,47 @@ def main():
         with tab2:
             st.header("Options Positioning Analysis")
             
-            # OI Heatmap
+            # OI Heatmap (Desktop only, optimized with ±5% filter)
             st.subheader("🔥 Open Interest Heatmap")
             try:
-                heatmap = viz.create_oi_heatmap({selected_week: filtered_df})
+                heatmap = viz.create_oi_heatmap(
+                    {selected_week: filtered_df},
+                    spot_price=current_spot,
+                    strike_range_pct=0.05  # Show only ±5% of spot
+                )
                 st.plotly_chart(heatmap, use_container_width=True, config=viz.plotly_config)
+                st.caption(f"ℹ️ Showing strikes within ±5% of spot ({current_spot*.95:.0f} - {current_spot*1.05:.0f})")
             except Exception as e:
                 st.warning(f"Heatmap: {e}")
             
-            # Top strikes
+            # Key Strike Analysis - Top 3 CE/PE with Context
+            st.subheader("🎯 Key Strike Analysis")
+            try:
+                top_oi_context = metrics.get_top_oi_with_context(current_spot, pcr, n=3)
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**📈 Top 3 Call (CE) Positions**")
+                    ce_data = top_oi_context['CE']
+                    for idx, row in ce_data.iterrows():
+                        with st.container():
+                            st.markdown(f"**Strike {row['Strike']:.0f}** | OI: {row['OI']:,.0f} ({row['OI_Pct']:.1f}%) | {row['Distance_Points']:+.0f} pts ({row['Distance_Pct']:+.1f}%)")
+                            st.info(f"➡️ {row['Signal']}")
+                    st.caption(f"PCR: {pcr:.2f} | Spot: {current_spot:.0f}")
+                
+                with col2:
+                    st.markdown("**📉 Top 3 Put (PE) Positions**")
+                    pe_data = top_oi_context['PE']
+                    for idx, row in pe_data.iterrows():
+                        with st.container():
+                            st.markdown(f"**Strike {row['Strike']:.0f}** | OI: {row['OI']:,.0f} ({row['OI_Pct']:.1f}%) | {row['Distance_Points']:+.0f} pts ({row['Distance_Pct']:+.1f}%)")
+                            st.success(f"➡️ {row['Signal']}")
+                    st.caption(f"PCR: {pcr:.2f} | Spot: {current_spot:.0f}")
+            except Exception as e:
+                st.warning(f"Strike analysis: {e}")
+            
+            # Top strikes (legacy simple view)
             st.subheader("🎯 Strike Concentration")
             
             col1, col2 = st.columns(2)
@@ -911,13 +1013,40 @@ def main():
             else:
                 st.info("🟡 Normal Volatility - Balanced regime")
     else:
-        # Mobile Tab 3: Risk Summary
+        # Mobile Tab 3: Positioning Summary (Optimized)
         with tab3:
-            st.header("⚠️ Risk Analysis")
+            st.header("🎯 Positioning Summary")
+            
+            # Show PCR and Max Pain
+            col1, col2 = st.columns(2)
+            with col1:
+                pcr_delta = "Bearish" if pcr > 1.3 else "Bullish" if pcr < 0.7 else "Neutral"
+                st.metric("PCR", f"{pcr:.2f}", delta=pcr_delta)
+            with col2:
+                st.metric("Max Pain", f"{max_pain:,.0f}")
+            
+            st.markdown("---")
+            
+            # Top OI Positions (Mobile optimized - compact view)
             try:
-                _render_mobile_risk_section(filtered_df, current_spot, pred_lower, pred_upper)
-            except:
-                st.info("Risk analysis unavailable")
+                top_oi_context = metrics.get_top_oi_with_context(current_spot, pcr, n=3)
+                
+                st.markdown("**📈 Top 3 Calls (Resistance)**")
+                ce_data = top_oi_context['CE']
+                for idx, row in ce_data.iterrows():
+                    st.markdown(f"• **{row['Strike']:.0f}** ({row['Distance_Pct']:+.1f}%) - {row['OI']:,.0f} OI")
+                    st.caption(row['Signal'])
+                
+                st.markdown("---")
+                
+                st.markdown("**📉 Top 3 Puts (Support)**")
+                pe_data = top_oi_context['PE']
+                for idx, row in pe_data.iterrows():
+                    st.markdown(f"• **{row['Strike']:.0f}** ({row['Distance_Pct']:+.1f}%) - {row['OI']:,.0f} OI")
+                    st.caption(row['Signal'])
+                
+            except Exception as e:
+                st.warning(f"OI analysis: {e}")
     
     # ============ DESKTOP-ONLY TABS ============
     if not st.session_state.mobile_mode:
@@ -1187,6 +1316,63 @@ def main():
                         'get_max_loss': lambda: max_loss_input,
                         'legs': []
                     })()
+            
+            st.markdown("---")
+            
+            # NEW: Probability-Based Trade Signal (appears first for quick decision)
+            st.subheader("🎯 AI-Powered Trade Signal")
+            
+            try:
+                prob_signal = decision_engine.generate_probability_signal(
+                    pcr=pcr,
+                    vix=current_vix,
+                    oi_concentration=concentration,
+                    iv_skew=iv_skew
+                )
+                
+                # Display action with color coding
+                action = prob_signal['action']
+                confidence = prob_signal['confidence']
+                strategy_rec = prob_signal['strategy']
+                
+                if action == "SELL_PREMIUM":
+                    action_color = "🟢"
+                    action_text = "SELL PREMIUM"
+                elif action == "BUY_PREMIUM":
+                    action_color = "🟡"
+                    action_text = "BUY PREMIUM"
+                elif action == "DIRECTIONAL":
+                    action_color = "🔵"
+                    action_text = "DIRECTIONAL TRADE"
+                else:
+                    action_color = "⚪"
+                    action_text = "WAIT"
+                
+                col1, col2, col3 = st.columns([1, 2, 2])
+                with col1:
+                    st.metric("Signal", f"{action_color} {action_text}")
+                with col2:
+                    st.metric("Confidence", f"{confidence}%", 
+                             delta="High" if confidence > 70 else "Medium" if confidence > 50 else "Low")
+                with col3:
+                    st.metric("Strategy", strategy_rec)
+                
+                # Reasoning box
+                st.info(f"**Reasoning:** {prob_signal['reasoning']}")
+                
+                # Detailed signals
+                with st.expander("📊 Signal Breakdown"):
+                    st.markdown(f"**Score:** {prob_signal['score']} (>50: Premium Sell, <-30: Directional)")
+                    st.markdown(f"**Bias:** {prob_signal['bias']}")
+                    st.markdown(f"**Vol Regime:** {prob_signal['vol_regime']}")
+                    st.markdown("**Contributing Signals:**")
+                    for signal in prob_signal['signals']:
+                        st.markdown(f"- {signal}")
+                
+            except Exception as e:
+                st.error(f"Trade signal error: {e}")
+                import traceback
+                st.code(traceback.format_exc())
             
             st.markdown("---")
             

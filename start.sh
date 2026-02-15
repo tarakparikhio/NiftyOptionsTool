@@ -89,29 +89,16 @@ start_pro_dashboard() {
     fi
 }
 
-# Start legacy dashboard
+# Legacy dashboard (archived in v2.0)
 start_legacy_dashboard() {
-    print_header "Starting Legacy Dashboard"
+    print_header "Legacy Dashboard - Archived"
     
-    if check_streamlit_running; then
-        print_info "Dashboard already running. Stopping first..."
-        pkill -f "streamlit run"
-        sleep 2
-    fi
-    
-    print_info "Launching app.py on port 8502..."
-    nohup streamlit run app.py --server.port=8502 > logs/streamlit.log 2>&1 &
-    
-    sleep 3
-    
-    if check_streamlit_running; then
-        print_success "Dashboard started successfully!"
-        print_info "Access at: http://localhost:8502"
-        print_info "Logs: tail -f logs/streamlit.log"
-    else
-        print_error "Failed to start dashboard. Check logs/streamlit.log for errors."
-        return 1
-    fi
+    print_error "Legacy app.py has been archived in v2.0 cleanup"
+    print_info "Location: archive/legacy_v1.0/app_legacy.py"
+    print_info "Use option 1 to start the current dashboard (app_pro.py)"
+    echo ""
+    read -p "Press Enter to continue..."
+    return 1
 }
 
 # Verify installation
