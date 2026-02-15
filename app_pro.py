@@ -277,7 +277,7 @@ def main():
                     
                     # Auto-fetch button
                     st.markdown("**🔄 Automatic Update**")
-                    if st.button("🚀 Auto-Fetch from API", type="primary", use_container_width=True):
+                    if st.button("🚀 Auto-Fetch from API", type="primary", width="stretch"):
                         with st.spinner("Fetching latest NIFTY data..."):
                             try:
                                 client = MarketDataClient()
@@ -555,7 +555,7 @@ def main():
             
             # Visual range
             range_fig = create_range_visual(current_spot, pred_lower, pred_upper, support, resistance)
-            st.plotly_chart(range_fig, use_container_width=True)
+            st.plotly_chart(range_fig, width="stretch")
             
             # Range metrics
             col1, col2, col3 = st.columns(3)
@@ -707,7 +707,7 @@ def main():
         st.subheader("🔥 Open Interest Heatmap")
         try:
             heatmap = viz.create_oi_heatmap({selected_week: filtered_df})
-            st.plotly_chart(heatmap, use_container_width=True)
+            st.plotly_chart(heatmap, width="stretch")
         except Exception as e:
             st.warning(f"Heatmap: {e}")
         
@@ -737,7 +737,7 @@ def main():
                 multi_metrics = MultiWeekMetrics(weekly_data)
                 pcr_trend = multi_metrics.compute_pcr_trend()
                 pcr_fig = viz.create_pcr_trend_chart(pcr_trend)
-                st.plotly_chart(pcr_fig, use_container_width=True)
+                st.plotly_chart(pcr_fig, width="stretch")
             except:
                 pass
     
@@ -760,7 +760,7 @@ def main():
         st.subheader("📐 IV Surface")
         try:
             iv_surface = viz.create_iv_surface({selected_week: filtered_df})
-            st.plotly_chart(iv_surface, use_container_width=True)
+            st.plotly_chart(iv_surface, width="stretch")
         except Exception as e:
             st.warning(f"IV surface: {e}")
         
@@ -822,7 +822,7 @@ def main():
                             ohlc_data=nifty_df,
                             overlays=overlays
                         )
-                        st.plotly_chart(candlestick_fig, use_container_width=True)
+                        st.plotly_chart(candlestick_fig, width="stretch")
                         
                         st.caption("🔵 Shaded area shows predicted range | 🟠 Max Pain level | 🟢 Support | 🔴 Resistance")
                         
@@ -858,7 +858,7 @@ def main():
                             ))
                             fig.add_hline(y=current_spot, line_dash="dash", annotation_text="Current")
                             fig.update_layout(title="NIFTY Price Trend (Last 60 Days)", height=400)
-                            st.plotly_chart(fig, use_container_width=True)
+                            st.plotly_chart(fig, width="stretch")
             else:
                 st.info("💡 Upload NIFTY historical data to `data/reference/nifty_close.csv` to display candlestick chart")
                 st.markdown("""
@@ -940,7 +940,7 @@ def main():
                     
                     if not migration_df.empty:
                         migration_fig = viz.create_strike_migration_chart(migration_df)
-                        st.plotly_chart(migration_fig, use_container_width=True)
+                        st.plotly_chart(migration_fig, width="stretch")
                 except Exception as e:
                     st.warning(f"Migration chart: {e}")
             
@@ -1102,7 +1102,7 @@ def main():
                     hovermode='x unified'
                 )
                 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
                 
                 # Store strategy in session state
                 st.session_state.strategy = strategy
@@ -1389,7 +1389,7 @@ def main():
             with st.expander("📊 Score Components"):
                 components = trade_score.get('components', {})
                 comp_df = pd.DataFrame([components])
-                st.dataframe(comp_df, use_container_width=True)
+                st.dataframe(comp_df, width="stretch")
             
             st.markdown("---")
             
@@ -1437,7 +1437,7 @@ def main():
                 starting_capital=account_size,
                 percentiles=[5, 25, 50, 75, 95]
             )
-            st.plotly_chart(equity_chart, use_container_width=True)
+            st.plotly_chart(equity_chart, width="stretch")
             
             st.markdown("---")
             
@@ -1513,7 +1513,7 @@ def main():
             # ========== FINAL DECISION ==========
             st.markdown("## 🎯 SHOULD I TRADE TODAY?")
             
-            if st.button("🚀 Generate Trading Decision", type="primary", use_container_width=True):
+            if st.button("🚀 Generate Trading Decision", type="primary", width="stretch"):
                 with st.spinner("Analyzing all factors..."):
                     decision = decision_engine.generate_trade_decision(
                         vol_edge=vol_edge,
