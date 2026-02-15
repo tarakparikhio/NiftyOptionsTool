@@ -1,6 +1,14 @@
 """
 Integration Guide: Directional Trading Engine
 
+⚠️ NOTE: This workflow example uses the legacy strategy_builder API
+   (archived in archive/legacy_v1.0/strategy_builder_old.py)
+   
+   For new code, see analysis/strategy_builder.py (V2) which provides:
+   - Strategy class with comprehensive risk metrics
+   - create_iron_condor(), create_strangle(), create_straddle() functions
+   - Professional UI components (analysis/strategy_ui.py)
+
 This module demonstrates how to use the updated components:
 1. Directional Signal Engine (RSI + PCR)
 2. Strategy Builder (with premium handling)
@@ -15,7 +23,11 @@ from typing import Dict, Any
 
 # Import all updated components
 from analysis.directional_signal import DirectionalSignalEngine, DirectionalSignal
-from analysis.strategy_builder import StrategyTemplate, IronCondor, Strangle
+# NOTE: Importing from archived legacy version for this example
+import sys
+sys.path.append('archive/legacy_v1.0')
+from strategy_builder_old import StrategyTemplate, IronCondor, Strangle
+sys.path.remove('archive/legacy_v1.0')
 from analysis.position_sizer import PositionSizer
 from analysis.range_predictor import RangePredictor
 from analysis.decision_engine import DecisionEngine

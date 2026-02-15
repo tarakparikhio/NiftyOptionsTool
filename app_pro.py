@@ -24,7 +24,7 @@ from insights import InsightsEngine
 
 # NEW: Import directional trading components
 from analysis.directional_signal import DirectionalSignalEngine
-from analysis.strategy_builder import StrategyTemplate, IronCondor, Strangle, Straddle
+# NOTE: Legacy strategy_builder classes removed - using strategy_builder_v2 in TAB 5
 from analysis.position_sizer import PositionSizer
 from analysis.range_predictor import RangePredictor
 from analysis.decision_engine import DecisionEngine
